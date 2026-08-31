@@ -304,6 +304,20 @@ main{max-width:1180px;margin:0 auto;padding:44px 6vw 90px;}
 .flight-strip .fl-route{font-weight:600;}
 .flight-strip .fl-time{color:var(--champagne-soft);font-size:.88rem;}
 
+.route-day-bar:empty{display:none;}
+.route-day-bar{margin-bottom:24px;}
+.route-bar-link{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--lake);color:#fff;border-radius:12px;padding:14px 18px;
+  font-weight:600;font-size:.92rem;text-decoration:none;
+}
+.route-bar-link:hover{background:#3f6779;}
+.route-bar-link i{font-size:1.05rem;flex:0 0 auto;}
+.route-bar-meta{
+  margin-left:auto;font-size:.78rem;font-weight:600;color:var(--champagne-soft);
+  display:flex;align-items:center;gap:6px;
+}
+
 .period{margin-bottom:26px;}
 .period h4{
   display:flex;align-items:center;gap:9px;font-size:1.05rem;margin-bottom:12px;color:var(--forest-dark);
@@ -362,6 +376,36 @@ main{max-width:1180px;margin:0 auto;padding:44px 6vw 90px;}
 }
 .item-body .edit-desc-input{resize:vertical;min-height:44px;}
 .item-body select{appearance:auto;color:var(--text);}
+
+/* ---------- GALERIA DE FOTOS NOS CARDS ---------- */
+.item-gallery{
+  position:relative;
+  width:84px;height:84px;
+  flex:0 0 auto;
+  border-radius:9px;
+  overflow:hidden;
+  align-self:center;
+  background:var(--cream-2);
+}
+.item-gallery img{
+  position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover;
+  opacity:0;
+  animation:galleryFade 9s infinite;
+}
+.item-gallery img:nth-child(1){animation-delay:0s;}
+.item-gallery img:nth-child(2){animation-delay:3s;}
+.item-gallery img:nth-child(3){animation-delay:6s;}
+@keyframes galleryFade{
+  0%{opacity:0;}
+  5%{opacity:1;}
+  28%{opacity:1;}
+  33%{opacity:0;}
+  100%{opacity:0;}
+}
+@media(max-width:520px){
+  .item-gallery{width:64px;height:64px;}
+}
 
 .add-toggle{
   margin-top:12px;
@@ -631,7 +675,8 @@ function migrateToUnifiedItems(){
           d: (edit && edit.d !== undefined) ? edit.d : (item.d || ''),
           map: (edit && edit.map !== undefined) ? edit.map : (item.map || ''),
           done: !!state.checks['chk-' + itemId],
-          cat: (edit && edit.cat) ? edit.cat : (item.cat || 'outro')
+          cat: (edit && edit.cat) ? edit.cat : (item.cat || 'outro'),
+          imgs: item.imgBucket ? imgUrls(item.imgBucket) : undefined
         });
       });
       (state.custom[listKey] || []).forEach(c=>{
@@ -764,10 +809,25 @@ function bindFields(root=document){
 /* ============================================================
    TRIP DATA
 ============================================================ */
+/* ============================================================
+   BANCOS DE FOTOS (por tema, usados nos cards de passeio/alimentação)
+============================================================ */
+const IMG_BUCKETS = {
+  empanadas:  ['1624128082323-beb6b8b508db','1608039783021-6116a558f0c5','1548228586-171fb0887ac0'],
+  asado:      ['1529694157872-4e0c0f3b238b','1594041680534-e8c8cdebd659','1627947063935-55577ec3c2e1'],
+  gelato:     ['1648971413826-8377e3c65039','1618581260815-9371027b9516','1657220644506-77fa47a3487b'],
+  chocolate:  ['1542990253-0d0f5be5f0ed','1637572815755-c4b80092dce1','1517578239113-b03992dcdd25'],
+  baStreet:   ['1679417302656-9b5170584526','1672588299018-41c8976e5c3f','1691216011700-681f22d79339'],
+  patagonia:  ['1598162461164-5cb059c382c6','1575819474446-a1acbd0652cf','1617548438104-286c90f80710']
+};
+function imgUrls(bucketKey){
+  return (IMG_BUCKETS[bucketKey] || []).map(id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=300&q=60`);
+}
+
 const days = [
   {
     id:'d1', date:'30 Nov 2026', weekday:'Segunda-feira', title:'Embarque rumo a Buenos Aires',
-    loc:'Curitiba → Buenos Aires',
+    loc:'Curitiba → Buenos Aires', travelMode:'walking',
     img:'https://images.unsplash.com/photo-1589909202802-8f4aadce1849?q=80&w=1200&auto=format&fit=crop',
     flight:{ route:'Curitiba (CWB) → Buenos Aires (AEP/EZE)', time:'Saída 10h00 · Chegada 12h30' },
     periods:[
@@ -776,39 +836,39 @@ const days = [
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-sun', items:[
         {t:'Check-in no hotel', d:'Deixar as malas e descansar um pouco da viagem. Endereço completo na aba Hospedagens.', cat:'descanso'},
-        {t:'Bosques de Palermo', d:'Lagos, trilhas e o Rosedal — ótimo para esticar as pernas logo depois do voo.', map:'Bosques de Palermo, Buenos Aires', cat:'passeio'},
-        {t:'Empanadas argentinas', d:'La Cocina ou El Gauchito — as duas são boas pedidas em Palermo.', map:'Empanadas Palermo, Buenos Aires', cat:'comida'},
-        {t:'Palermo Soho & Palermo Hollywood', d:'Ruas arborizadas, lojas de design e cafés charmosos.', map:'Palermo Soho, Buenos Aires', cat:'passeio'}
+        {t:'Bosques de Palermo', d:'Lagos, trilhas e o Rosedal — ótimo para esticar as pernas logo depois do voo.', map:'Bosques de Palermo, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:'Empanadas argentinas', d:'La Cocina ou El Gauchito — as duas são boas pedidas em Palermo.', map:'Empanadas Palermo, Buenos Aires', cat:'comida', imgBucket:'empanadas'},
+        {t:'Palermo Soho & Palermo Hollywood', d:'Ruas arborizadas, lojas de design e cafés charmosos.', map:'Palermo Soho, Buenos Aires', cat:'passeio', imgBucket:'baStreet'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
-        {t:'Noite de Tango', d:'Tango Porteño.', map:'Tango Porteño, Buenos Aires', cat:'passeio'}
+        {t:'Noite de Tango', d:'Tango Porteño.', map:'Tango Porteño, Buenos Aires', cat:'passeio', imgBucket:'baStreet'}
       ]}
     ]
   },
   {
     id:'d2', date:'01 Dez 2026', weekday:'Terça-feira', title:'Dia inteiro em Buenos Aires',
-    loc:'Buenos Aires',
+    loc:'Buenos Aires', travelMode:'walking',
     img:'https://images.unsplash.com/photo-1612294037637-ec328d0e075e?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-sun', items:[
-        {t:'Campanópolis', d:'Vila medieval a ~35 km do centro (região de González Catán) — com traslado, costuma ocupar a manhã inteira. Se decidirem ir, considerem deixar os outros passeios deste bloco para outro dia.', map:'Campanópolis, González Catán, Buenos Aires', cat:'passeio'},
-        {t:'Palacio Errázuriz', d:'Museu Nacional de Arte Decorativo, num palacete afrancesado em Recoleta.', map:'Museo Nacional de Arte Decorativo, Av. del Libertador 1902, Buenos Aires', cat:'passeio'},
-        {t:'El Ateneo Grand Splendid', d:'Livraria dentro de um antigo teatro, ali perto na Av. Santa Fe — parada obrigatória para foto.', map:'El Ateneo Grand Splendid, Av. Santa Fe 1860, Buenos Aires', cat:'passeio'},
-        {t:'Almoço: Santos Manjares', d:'Parrilla tradicional, ótimo custo-benefício, perto do Obelisco.', map:'Santos Manjares, Paraguay 938, Buenos Aires', cat:'comida'}
+        {t:'Campanópolis', d:'Vila medieval a ~35 km do centro (região de González Catán) — com traslado, costuma ocupar a manhã inteira. Se decidirem ir, considerem deixar os outros passeios deste bloco para outro dia.', map:'Campanópolis, González Catán, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:'Palacio Errázuriz', d:'Museu Nacional de Arte Decorativo, num palacete afrancesado em Recoleta.', map:'Museo Nacional de Arte Decorativo, Av. del Libertador 1902, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:'El Ateneo Grand Splendid', d:'Livraria dentro de um antigo teatro, ali perto na Av. Santa Fe — parada obrigatória para foto.', map:'El Ateneo Grand Splendid, Av. Santa Fe 1860, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:'Almoço: Santos Manjares', d:'Parrilla tradicional, ótimo custo-benefício, perto do Obelisco.', map:'Santos Manjares, Paraguay 938, Buenos Aires', cat:'comida', imgBucket:'asado'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-bag-shopping', items:[
-        {t:'Calle Florida', d:'Casa Rosada, Catedral Metropolitana e Banco de la Nación — ótimo trecho para caminhar.', map:'Casa Rosada, Buenos Aires', cat:'passeio'},
-        {t:'Bairro San Telmo', d:'Ruas de paralelepípedo, antiquários e a atmosfera mais boêmia da cidade.', map:'San Telmo, Buenos Aires', cat:'passeio'},
-        {t:"Lucciano's — Gelatos", d:'Parada doce na área de Puerto Madero para fechar a tarde à beira da água.', map:"Lucciano's Puerto Madero, Buenos Aires", cat:'comida'}
+        {t:'Calle Florida', d:'Casa Rosada, Catedral Metropolitana e Banco de la Nación — ótimo trecho para caminhar.', map:'Casa Rosada, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:'Bairro San Telmo', d:'Ruas de paralelepípedo, antiquários e a atmosfera mais boêmia da cidade.', map:'San Telmo, Buenos Aires', cat:'passeio', imgBucket:'baStreet'},
+        {t:"Lucciano's — Gelatos", d:'Parada doce na área de Puerto Madero para fechar a tarde à beira da água.', map:"Lucciano's Puerto Madero, Buenos Aires", cat:'comida', imgBucket:'gelato'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-champagne-glasses', items:[
-        {t:'Jantar de parrilla', d:'Carnes argentinas de altíssimo nível.\nPuny (Av. Corrientes) ou Santos Manjares.', map:'Puny Pasta & Grill, Av. Corrientes 1269, Buenos Aires', cat:'comida'}
+        {t:'Jantar de parrilla', d:'Carnes argentinas de altíssimo nível.\nPuny (Av. Corrientes) ou Santos Manjares.', map:'Puny Pasta & Grill, Av. Corrientes 1269, Buenos Aires', cat:'comida', imgBucket:'asado'}
       ]}
     ]
   },
   {
     id:'d3', date:'02 Dez 2026', weekday:'Quarta-feira', title:'Rumo à Patagônia',
-    loc:'Buenos Aires → Bariloche',
+    loc:'Buenos Aires → Bariloche', travelMode:'driving',
     img:'https://images.unsplash.com/photo-1531065208531-4036c0dba3ca?q=80&w=1200&auto=format&fit=crop',
     flight:{ route:'Buenos Aires → Bariloche', time:'Saída 04h35 · Chegada 07h00' },
     periods:[
@@ -816,18 +876,18 @@ const days = [
         {t:'Chegada em Bariloche', d:'Saída 04h35, chegada 07h00. Vale pedir o traslado do hotel na noite anterior.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-mountain-sun', items:[
-        {t:'Tomar café da manhã', d:'Com calma, depois da madrugada de voo.', cat:'comida'},
+        {t:'Tomar café da manhã', d:'Com calma, depois da madrugada de voo.', cat:'comida', imgBucket:'chocolate'},
         {t:'Check-in no hotel — La Huala', d:'Chalet na região do Llao Llao, a caminho do Circuito Chico.', map:'La Huala, Genoveva Beveraggi 1806, San Carlos de Bariloche', cat:'descanso'},
         {t:'Ficar de boa no hotel', d:'Recuperar o sono e aproveitar a vista antes de sair de novo.', cat:'descanso'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
-        {t:'Jantar aconchegante no centro', d:'Fondue ou pizza para esquentar.', map:'Centro San Carlos de Bariloche', cat:'comida'}
+        {t:'Jantar aconchegante no centro', d:'Fondue ou pizza para esquentar.', map:'Centro San Carlos de Bariloche', cat:'comida', imgBucket:'asado'}
       ]}
     ]
   },
   {
     id:'d4', date:'03 Dez 2026', weekday:'Quinta-feira', title:'Mirantes e Circuito Chico',
-    loc:'Bariloche',
+    loc:'Bariloche', travelMode:'driving',
     img:'https://images.unsplash.com/photo-1531572753322-ad063cecc140?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-car-side', items:[
@@ -835,55 +895,55 @@ const days = [
         {t:'Check-out e retirada do carro', d:'Depois do check-out, pegar o carro alugado para rodar o Circuito Chico.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-car', items:[
-        {t:'Circuito Chico + Cerro Campanario', d:'Estrada panorâmica com vista para os lagos Nahuel Huapi, Moreno e Perito Moreno.', map:'Circuito Chico, Bariloche', cat:'passeio'},
-        {t:'Hotel Llao Llao (vista, sem hospedar)', d:'Um dos points mais fotografados da região, mesmo só de passagem — bem na sequência do Circuito Chico.', map:'Llao Llao Bariloche', cat:'passeio'},
-        {t:'Almoço', d:'Alguma parada na área do Llao Llao/Circuito Chico.', cat:'comida'}
+        {t:'Circuito Chico + Cerro Campanario', d:'Estrada panorâmica com vista para os lagos Nahuel Huapi, Moreno e Perito Moreno.', map:'Circuito Chico, Bariloche', cat:'passeio', imgBucket:'patagonia'},
+        {t:'Hotel Llao Llao (vista, sem hospedar)', d:'Um dos points mais fotografados da região, mesmo só de passagem — bem na sequência do Circuito Chico.', map:'Llao Llao Bariloche', cat:'passeio', imgBucket:'patagonia'},
+        {t:'Almoço', d:'Alguma parada na área do Llao Llao/Circuito Chico.', cat:'comida', imgBucket:'asado'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-mug-hot', items:[
-        {t:'Chocolate quente no centro', d:'Rapa Nui — clássico de Bariloche.', map:'Rapa Nui Bariloche', cat:'comida'},
-        {t:'Passear no centro de Bariloche', d:'Orla do lago e Centro Cívico à noite.', map:'Centro Cívico Bariloche', cat:'passeio'}
+        {t:'Chocolate quente no centro', d:'Rapa Nui — clássico de Bariloche.', map:'Rapa Nui Bariloche', cat:'comida', imgBucket:'chocolate'},
+        {t:'Passear no centro de Bariloche', d:'Orla do lago e Centro Cívico à noite.', map:'Centro Cívico Bariloche', cat:'passeio', imgBucket:'patagonia'}
       ]}
     ]
   },
   {
     id:'d5', date:'04 Dez 2026', weekday:'Sexta-feira', title:'Rota dos 7 Lagos',
-    loc:'Bariloche → San Martín de los Andes',
+    loc:'Bariloche → San Martín de los Andes', travelMode:'driving',
     img:'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-car-side', items:[
-        {t:'Saída cedo para a Rota dos 7 Lagos', d:'Ver a lista completa de paradas na aba "Rota dos 7 Lagos".', map:'Villa La Angostura', cat:'passeio'}
+        {t:'Saída cedo para a Rota dos 7 Lagos', d:'Ver a lista completa de paradas na aba "Rota dos 7 Lagos".', map:'Villa La Angostura', cat:'passeio', imgBucket:'patagonia'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-water', items:[
-        {t:'San Martín de los Andes', d:'Cidade charmosa às margens do Lago Lácar, ótima para caminhar ao chegar.', map:'San Martín de los Andes', cat:'passeio'}
+        {t:'San Martín de los Andes', d:'Cidade charmosa às margens do Lago Lácar, ótima para caminhar ao chegar.', map:'San Martín de los Andes', cat:'passeio', imgBucket:'patagonia'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
         {t:'Check-in no hotel', d:'Já em San Martín de los Andes — sem volta a Bariloche essa noite.', cat:'descanso'},
         {t:'Ficar em San Martín', d:'Depois de um dia longo de estrada, algo simples perto do hotel.', cat:'descanso'},
-        {t:'Jantar e passeio na cidade', d:'Caminhada tranquila pelo centro à beira do Lago Lácar.', map:'Centro San Martín de los Andes', cat:'comida'}
+        {t:'Jantar e passeio na cidade', d:'Caminhada tranquila pelo centro à beira do Lago Lácar.', map:'Centro San Martín de los Andes', cat:'comida', imgBucket:'asado'}
       ]}
     ]
   },
   {
     id:'d6', date:'05 Dez 2026', weekday:'Sábado', title:'San Martín de los Andes & volta a Bariloche',
-    loc:'San Martín de los Andes → Bariloche',
+    loc:'San Martín de los Andes → Bariloche', travelMode:'driving',
     img:'https://images.unsplash.com/photo-1618679283128-976b6e46d1c1?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-water', items:[
-        {t:'Curtir o Lago Lácar', d:'Manhã tranquila à beira do lago antes de pegar a estrada de volta.', map:'Lago Lácar, San Martín de los Andes', cat:'passeio'},
+        {t:'Curtir o Lago Lácar', d:'Manhã tranquila à beira do lago antes de pegar a estrada de volta.', map:'Lago Lácar, San Martín de los Andes', cat:'passeio', imgBucket:'patagonia'},
         {t:'Volta para Bariloche', d:'Mesmo trajeto da Rota dos 7 Lagos, agora no sentido contrário.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-store', items:[
         {t:'Lojinhas no centro', d:'Tempo livre para compras e lembrancinhas — chocolates inclusos.', map:'Mamuschka Chocolates, Bariloche', cat:'compras'},
-        {t:'Passeio tranquilo no centro', d:'Um respiro antes da volta, orla do Lago Nahuel Huapi.', map:'Centro San Carlos de Bariloche', cat:'passeio'}
+        {t:'Passeio tranquilo no centro', d:'Um respiro antes da volta, orla do Lago Nahuel Huapi.', map:'Centro San Carlos de Bariloche', cat:'passeio', imgBucket:'patagonia'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-champagne-glasses', items:[
-        {t:'Jantar romântico de despedida da Patagônia', d:'Celebrar os últimos momentos da lua de mel.', map:'Melhores restaurantes Bariloche', cat:'comida'}
+        {t:'Jantar romântico de despedida da Patagônia', d:'Celebrar os últimos momentos da lua de mel.', map:'Melhores restaurantes Bariloche', cat:'comida', imgBucket:'asado'}
       ]}
     ]
   },
   {
     id:'d7', date:'06 Dez 2026', weekday:'Domingo', title:'Volta para casa',
-    loc:'Bariloche → Buenos Aires → Curitiba',
+    loc:'Bariloche → Buenos Aires → Curitiba', travelMode:'driving',
     img:'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop',
     flight:{ route:'Bariloche → Buenos Aires → Curitiba', time:'09h55–12h00 · conexão 14h00–16h00' },
     periods:[
@@ -961,6 +1021,7 @@ function renderDayPanels(){
             <div class="fl-time">${day.flight.time}</div>
           </div>
         </div>` : ''}
+      <div class="route-day-bar" id="route-${day.id}"></div>
       ${day.periods.map(period => renderPeriod(day.id, period)).join('')}
       <div class="day-notes">
         <label>Anotações do dia</label>
@@ -998,6 +1059,10 @@ function itemsHtml(listKey){
   const items = state.items[listKey] || [];
   return items.map(item => {
     const c = catInfo(item.cat);
+    const gallery = (item.imgs && item.imgs.length) ? `
+      <div class="item-gallery">
+        ${item.imgs.slice(0,3).map(src => `<img src="${src}" alt="" loading="lazy">`).join('')}
+      </div>` : '';
     return `
     <div class="item ${item.done?'done':''}" data-entry-id="${item.id}" style="border-left:4px solid ${c.color};">
       <div class="drag-handle" title="Arraste para reordenar"><i class="fa-solid fa-grip-vertical"></i></div>
@@ -1013,6 +1078,7 @@ function itemsHtml(listKey){
           <button class="del-btn" onclick="deleteEntry('${listKey}','${item.id}')"><i class="fa-solid fa-trash"></i> Remover</button>
         </div>
       </div>
+      ${gallery}
     </div>`;
   }).join('');
 }
@@ -1046,6 +1112,7 @@ function addEntry(listKey){
   document.getElementById('add-cat-' + listKey).value = 'outro';
   toggleAddForm(listKey);
   refreshItemsList(listKey);
+  updateDayRoute(listKey.split('_')[0]);
 }
 
 function toggleEntryDone(listKey, id, el){
@@ -1079,6 +1146,7 @@ function saveEditEntry(listKey, id){
   item.cat = wrap.querySelector('.edit-cat-input').value;
   persist();
   refreshItemsList(listKey);
+  updateDayRoute(listKey.split('_')[0]);
 }
 
 function deleteEntry(listKey, id){
@@ -1086,6 +1154,7 @@ function deleteEntry(listKey, id){
   state.items[listKey] = (state.items[listKey]||[]).filter(i=>i.id!==id);
   persist();
   refreshItemsList(listKey);
+  updateDayRoute(listKey.split('_')[0]);
 }
 
 /* -- mover atividade para outro dia/período (via seletor, já que só um dia fica visível por vez) -- */
@@ -1125,6 +1194,8 @@ function confirmMoveEntry(fromListKey, id){
   persist();
   refreshItemsList(fromListKey);
   refreshItemsList(toListKey);
+  updateDayRoute(fromListKey.split('_')[0]);
+  updateDayRoute(toListKey.split('_')[0]);
 }
 
 /* -- arrastar e soltar: reordenar dentro do dia e entre manhã/tarde/noite -- */
@@ -1162,6 +1233,7 @@ function handleDragEnd(evt){
   if(!state.items[toKey]) state.items[toKey] = [];
   state.items[toKey].splice(evt.newIndex, 0, movedItem);
   persist();
+  updateDayRoute(fromKey.split('_')[0]);
 }
 
 function escapeHtml(str){
@@ -1215,6 +1287,50 @@ function renderCatLegend(){
 }
 
 /* ============================================================
+   ROTA DO DIA (link único do Google Maps com todas as paradas)
+============================================================ */
+function getDayMapStops(dayId){
+  const day = days.find(d=>d.id===dayId);
+  const stops = [];
+  day.periods.forEach(period=>{
+    const listKey = dayId + '_' + period.id;
+    (state.items[listKey] || []).forEach(item=>{
+      if(item.map && item.map.trim()) stops.push(item.map.trim());
+    });
+  });
+  return stops;
+}
+
+function updateDayRoute(dayId){
+  const el = document.getElementById('route-' + dayId);
+  if(!el) return;
+  const day = days.find(d=>d.id===dayId);
+  const stops = getDayMapStops(dayId);
+  if(stops.length === 0){ el.innerHTML = ''; return; }
+  if(stops.length === 1){
+    el.innerHTML = `<a class="route-bar-link" href="#" onclick="openMaps('${stops[0].replace(/'/g,"\\'")}'); return false;"><i class="fa-solid fa-route"></i><span>Ver ${escapeHtml(stops[0])} no Maps</span></a>`;
+    return;
+  }
+  const mode = day.travelMode || 'driving';
+  const origin = encodeURIComponent(stops[0]);
+  const destination = encodeURIComponent(stops[stops.length - 1]);
+  const middle = stops.slice(1, -1).map(s => encodeURIComponent(s)).join('|');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`;
+  if(middle) url += `&waypoints=${middle}`;
+  const modeIcon = mode === 'walking' ? 'fa-person-walking' : 'fa-car';
+  el.innerHTML = `
+    <a class="route-bar-link" href="${url}" target="_blank" rel="noopener">
+      <i class="fa-solid fa-route"></i>
+      <span>Ver rota do dia no Google Maps</span>
+      <span class="route-bar-meta"><i class="fa-solid ${modeIcon}"></i>${stops.length} paradas</span>
+    </a>`;
+}
+
+function updateAllDayRoutes(){
+  days.forEach(day => updateDayRoute(day.id));
+}
+
+/* ============================================================
    INIT
 ============================================================ */
 migrateToUnifiedItems();
@@ -1225,6 +1341,7 @@ renderLagos();
 renderCatLegend();
 bindFields(document);
 initSortableLists();
+updateAllDayRoutes();
 </script>
 </body>
 </html>
