@@ -311,9 +311,28 @@ main{max-width:1180px;margin:0 auto;padding:44px 6vw 90px;}
 .period h4 i{color:var(--champagne);width:20px;text-align:center;}
 .item-list{display:flex;flex-direction:column;gap:10px;}
 .item{
-  display:flex;align-items:flex-start;gap:12px;
+  display:flex;align-items:flex-start;gap:10px;
   background:var(--card);border:1px solid var(--border);border-radius:11px;
-  padding:12px 14px;
+  padding:12px 14px 12px 10px;
+}
+.drag-handle{
+  cursor:grab;
+  color:var(--muted);
+  padding:6px 4px;
+  touch-action:none;
+  flex:0 0 auto;
+  align-self:stretch;
+  display:flex;
+  align-items:center;
+}
+.drag-handle:active{cursor:grabbing;}
+.sortable-ghost{opacity:.35;}
+.sortable-chosen{box-shadow:0 6px 18px rgba(43,38,32,.18);}
+.sortable-drag{opacity:.95;}
+.cat-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.66rem;font-weight:700;color:#fff;
+  padding:3px 9px;border-radius:999px;margin-bottom:6px;
 }
 .item input[type=checkbox]{
   margin-top:3px;width:18px;height:18px;accent-color:var(--forest);flex:0 0 auto;cursor:pointer;
@@ -337,20 +356,42 @@ main{max-width:1180px;margin:0 auto;padding:44px 6vw 90px;}
   color:var(--forest-dark);border:1px solid var(--border);padding:5px 10px;border-radius:7px;background:none;
 }
 .edit-btn:hover{background:var(--cream-2);}
-.item-body .edit-title-input, .item-body .edit-desc-input, .item-body .edit-map-input{
+.item-body .edit-title-input, .item-body .edit-desc-input, .item-body .edit-map-input, .item-body select{
   width:100%;border:1px solid var(--champagne);border-radius:8px;padding:8px 10px;
   font-family:inherit;font-size:16px;background:#fff;margin-bottom:8px;
 }
 .item-body .edit-desc-input{resize:vertical;min-height:44px;}
-.add-row{display:flex;gap:8px;margin-top:12px;}
-.add-row input{
-  flex:1;border:1px dashed var(--border);border-radius:9px;padding:10px 12px;background:transparent;font-family:inherit;font-size:16px;
+.item-body select{appearance:auto;color:var(--text);}
+
+.add-toggle{
+  margin-top:12px;
+  background:none;border:1px dashed var(--border);border-radius:9px;
+  padding:10px 14px;color:var(--forest-dark);font-weight:600;font-size:.86rem;
+  display:inline-flex;align-items:center;gap:8px;
 }
-.add-row input:focus{outline:none;border-color:var(--champagne);border-style:solid;background:#fff;}
-.add-row button{
-  background:var(--champagne);color:#fff;border:none;border-radius:9px;padding:0 16px;font-weight:700;
+.add-toggle:hover{background:var(--cream-2);}
+.add-form{
+  margin-top:10px;display:flex;flex-direction:column;gap:8px;
+  background:var(--cream-2);border-radius:11px;padding:14px;
 }
-.add-row button:hover{background:#b5904e;}
+.add-form input, .add-form textarea, .add-form select{
+  width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 11px;
+  font-family:inherit;font-size:16px;background:#fff;
+}
+.add-form textarea{resize:vertical;min-height:44px;}
+.add-form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
+
+/* ---------- LEGENDA DE CATEGORIAS ---------- */
+.cat-legend{
+  display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px;
+}
+.cat-legend .tag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:.76rem;font-weight:600;color:var(--forest-dark);
+  background:var(--card);border:1px solid var(--border);
+  padding:5px 11px;border-radius:999px;
+}
+.cat-legend .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
 
 .day-notes{margin-top:24px;}
 .day-notes label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;}
@@ -484,8 +525,9 @@ footer button{
   <section class="view" id="view-roteiro">
     <div class="section-head">
       <h2>Roteiro dia a dia</h2>
-      <p>Marque o que já foi feito, adicione novos planos e use os links para abrir cada lugar direto no Google Maps.</p>
+      <p>Marque o que já foi feito, arraste pelo ícone <i class="fa-solid fa-grip-vertical"></i> para reordenar ou mudar de manhã/tarde/noite, e use "Mover" para levar uma atividade para outro dia.</p>
     </div>
+    <div class="cat-legend" id="catLegend"></div>
     <div class="day-tabs" id="dayTabs"></div>
     <div id="dayPanels"></div>
   </section>
@@ -537,19 +579,69 @@ footer button{
   <button onclick="clearAllData()">Limpar todos os dados salvos</button>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
+/* ============================================================
+   CATEGORIAS (cores)
+============================================================ */
+const CATEGORIES = {
+  passeio:    { label:'Passeio',        color:'#4C7A8C', icon:'fa-person-hiking' },
+  comida:     { label:'Alimentação',    color:'#C97B4A', icon:'fa-utensils' },
+  descanso:   { label:'Descanso/Hotel', color:'#8B7EC8', icon:'fa-bed' },
+  transporte: { label:'Transporte',     color:'#6B7280', icon:'fa-car' },
+  compras:    { label:'Compras',        color:'#C9A15C', icon:'fa-bag-shopping' },
+  outro:      { label:'Outro',          color:'#A39C8C', icon:'fa-circle' }
+};
+function catInfo(cat){ return CATEGORIES[cat] || CATEGORIES.outro; }
+function catOptionsHtml(selected){
+  return Object.entries(CATEGORIES).map(([key,c])=>
+    `<option value="${key}" ${key===selected?'selected':''}>${c.label}</option>`
+  ).join('');
+}
+
 /* ============================================================
    DATA MODEL
 ============================================================ */
 const STORAGE_KEY = 'honeymoon_ba_bariloche_v2';
 let state = {};
 try{ state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }catch(e){ state = {}; }
-if(!state.custom) state.custom = {};      // { dayId_periodId: [{id,text,done}] }
-if(!state.checks) state.checks = {};      // { checkboxId: true/false }
+if(!state.custom) state.custom = {};      // legado (pré-migração)
+if(!state.checks) state.checks = {};      // legado (pré-migração)
 if(!state.fields) state.fields = {};      // { fieldId: value }
-if(!state.edits) state.edits = {};        // { itemId: {t, d, deleted} } — edições/exclusões dos itens pré-carregados
+if(!state.edits) state.edits = {};        // legado (pré-migração)
+if(!state.items) state.items = {};        // { listKey: [{id,t,d,map,done,cat}] } — modelo unificado atual
 
 function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+/* Migra dados do formato antigo (edits/custom/checks) para o novo modelo unificado
+   de itens (state.items), preservando exatamente o que já estava salvo/exibido. */
+function migrateToUnifiedItems(){
+  days.forEach(day=>{
+    day.periods.forEach(period=>{
+      const listKey = day.id + '_' + period.id;
+      if(state.items[listKey]) return; // já migrado
+      const arr = [];
+      period.items.forEach((item, idx)=>{
+        const itemId = listKey + '_' + idx;
+        const edit = state.edits[itemId];
+        if(edit && edit.deleted) return;
+        arr.push({
+          id: itemId,
+          t: (edit && edit.t !== undefined) ? edit.t : item.t,
+          d: (edit && edit.d !== undefined) ? edit.d : (item.d || ''),
+          map: (edit && edit.map !== undefined) ? edit.map : (item.map || ''),
+          done: !!state.checks['chk-' + itemId],
+          cat: (edit && edit.cat) ? edit.cat : (item.cat || 'outro')
+        });
+      });
+      (state.custom[listKey] || []).forEach(c=>{
+        arr.push({ id: c.id, t: c.text, d: c.desc || '', map: c.map || '', done: !!c.done, cat: c.cat || 'outro' });
+      });
+      state.items[listKey] = arr;
+    });
+  });
+  persist();
+}
 
 function clearAllData(){
   if(confirm('Isso vai apagar todas as edições salvas neste navegador (hotéis, checklist, notas). Deseja continuar?')){
@@ -583,7 +675,8 @@ function importBackup(file){
         custom: imported.custom || {},
         checks: imported.checks || {},
         fields: imported.fields || {},
-        edits: imported.edits || {}
+        edits: imported.edits || {},
+        items: imported.items || {}
       };
       persist();
       alert('Backup importado com sucesso!');
@@ -679,16 +772,16 @@ const days = [
     flight:{ route:'Curitiba (CWB) → Buenos Aires (AEP/EZE)', time:'Saída 10h00 · Chegada 12h30' },
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-plane-departure', items:[
-        {t:'Chegada em Buenos Aires', d:'Retirada de bagagem e traslado até o hotel em Palermo/Recoleta.'}
+        {t:'Chegada em Buenos Aires', d:'Retirada de bagagem e traslado até o hotel em Palermo/Recoleta.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-sun', items:[
-        {t:'Check-in no hotel', d:'Deixar as malas e descansar um pouco da viagem. Endereço completo na aba Hospedagens.'},
-        {t:'Bosques de Palermo', d:'Lagos, trilhas e o Rosedal — ótimo para esticar as pernas logo depois do voo.', map:'Bosques de Palermo, Buenos Aires'},
-        {t:'Empanadas argentinas', d:'La Cocina ou El Gauchito — as duas são boas pedidas em Palermo.', map:'Empanadas Palermo, Buenos Aires'},
-        {t:'Palermo Soho & Palermo Hollywood', d:'Ruas arborizadas, lojas de design e cafés charmosos.', map:'Palermo Soho, Buenos Aires'}
+        {t:'Check-in no hotel', d:'Deixar as malas e descansar um pouco da viagem. Endereço completo na aba Hospedagens.', cat:'descanso'},
+        {t:'Bosques de Palermo', d:'Lagos, trilhas e o Rosedal — ótimo para esticar as pernas logo depois do voo.', map:'Bosques de Palermo, Buenos Aires', cat:'passeio'},
+        {t:'Empanadas argentinas', d:'La Cocina ou El Gauchito — as duas são boas pedidas em Palermo.', map:'Empanadas Palermo, Buenos Aires', cat:'comida'},
+        {t:'Palermo Soho & Palermo Hollywood', d:'Ruas arborizadas, lojas de design e cafés charmosos.', map:'Palermo Soho, Buenos Aires', cat:'passeio'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
-        {t:'Noite de Tango', d:'Tango Porteño.', map:'Tango Porteño, Buenos Aires'}
+        {t:'Noite de Tango', d:'Tango Porteño.', map:'Tango Porteño, Buenos Aires', cat:'passeio'}
       ]}
     ]
   },
@@ -698,18 +791,18 @@ const days = [
     img:'https://images.unsplash.com/photo-1612294037637-ec328d0e075e?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-sun', items:[
-        {t:'Campanópolis', d:'Vila medieval a ~35 km do centro (região de González Catán) — com traslado, costuma ocupar a manhã inteira. Se decidirem ir, considerem deixar os outros passeios deste bloco para outro dia.', map:'Campanópolis, González Catán, Buenos Aires'},
-        {t:'Palacio Errázuriz', d:'Museu Nacional de Arte Decorativo, num palacete afrancesado em Recoleta.', map:'Museo Nacional de Arte Decorativo, Av. del Libertador 1902, Buenos Aires'},
-        {t:'El Ateneo Grand Splendid', d:'Livraria dentro de um antigo teatro, ali perto na Av. Santa Fe — parada obrigatória para foto.', map:'El Ateneo Grand Splendid, Av. Santa Fe 1860, Buenos Aires'},
-        {t:'Almoço: Santos Manjares', d:'Parrilla tradicional, ótimo custo-benefício, perto do Obelisco.', map:'Santos Manjares, Paraguay 938, Buenos Aires'}
+        {t:'Campanópolis', d:'Vila medieval a ~35 km do centro (região de González Catán) — com traslado, costuma ocupar a manhã inteira. Se decidirem ir, considerem deixar os outros passeios deste bloco para outro dia.', map:'Campanópolis, González Catán, Buenos Aires', cat:'passeio'},
+        {t:'Palacio Errázuriz', d:'Museu Nacional de Arte Decorativo, num palacete afrancesado em Recoleta.', map:'Museo Nacional de Arte Decorativo, Av. del Libertador 1902, Buenos Aires', cat:'passeio'},
+        {t:'El Ateneo Grand Splendid', d:'Livraria dentro de um antigo teatro, ali perto na Av. Santa Fe — parada obrigatória para foto.', map:'El Ateneo Grand Splendid, Av. Santa Fe 1860, Buenos Aires', cat:'passeio'},
+        {t:'Almoço: Santos Manjares', d:'Parrilla tradicional, ótimo custo-benefício, perto do Obelisco.', map:'Santos Manjares, Paraguay 938, Buenos Aires', cat:'comida'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-bag-shopping', items:[
-        {t:'Calle Florida', d:'Casa Rosada, Catedral Metropolitana e Banco de la Nación — ótimo trecho para caminhar.', map:'Casa Rosada, Buenos Aires'},
-        {t:'Bairro San Telmo', d:'Ruas de paralelepípedo, antiquários e a atmosfera mais boêmia da cidade.', map:'San Telmo, Buenos Aires'},
-        {t:"Lucciano's — Gelatos", d:'Parada doce na área de Puerto Madero para fechar a tarde à beira da água.', map:"Lucciano's Puerto Madero, Buenos Aires"}
+        {t:'Calle Florida', d:'Casa Rosada, Catedral Metropolitana e Banco de la Nación — ótimo trecho para caminhar.', map:'Casa Rosada, Buenos Aires', cat:'passeio'},
+        {t:'Bairro San Telmo', d:'Ruas de paralelepípedo, antiquários e a atmosfera mais boêmia da cidade.', map:'San Telmo, Buenos Aires', cat:'passeio'},
+        {t:"Lucciano's — Gelatos", d:'Parada doce na área de Puerto Madero para fechar a tarde à beira da água.', map:"Lucciano's Puerto Madero, Buenos Aires", cat:'comida'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-champagne-glasses', items:[
-        {t:'Jantar de parrilla', d:'Carnes argentinas de altíssimo nível.\nPuny (Av. Corrientes) ou Santos Manjares.', map:'Puny Pasta & Grill, Av. Corrientes 1269, Buenos Aires'}
+        {t:'Jantar de parrilla', d:'Carnes argentinas de altíssimo nível.\nPuny (Av. Corrientes) ou Santos Manjares.', map:'Puny Pasta & Grill, Av. Corrientes 1269, Buenos Aires', cat:'comida'}
       ]}
     ]
   },
@@ -720,15 +813,15 @@ const days = [
     flight:{ route:'Buenos Aires → Bariloche', time:'Saída 04h35 · Chegada 07h00' },
     periods:[
       { id:'manha', label:'Manhã (bem cedo!)', icon:'fa-plane-departure', items:[
-        {t:'Chegada em Bariloche', d:'Saída 04h35, chegada 07h00. Vale pedir o traslado do hotel na noite anterior.'}
+        {t:'Chegada em Bariloche', d:'Saída 04h35, chegada 07h00. Vale pedir o traslado do hotel na noite anterior.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-mountain-sun', items:[
-        {t:'Tomar café da manhã', d:'Com calma, depois da madrugada de voo.'},
-        {t:'Check-in no hotel — La Huala', d:'Chalet na região do Llao Llao, a caminho do Circuito Chico.', map:'La Huala, Genoveva Beveraggi 1806, San Carlos de Bariloche'},
-        {t:'Ficar de boa no hotel', d:'Recuperar o sono e aproveitar a vista antes de sair de novo.'}
+        {t:'Tomar café da manhã', d:'Com calma, depois da madrugada de voo.', cat:'comida'},
+        {t:'Check-in no hotel — La Huala', d:'Chalet na região do Llao Llao, a caminho do Circuito Chico.', map:'La Huala, Genoveva Beveraggi 1806, San Carlos de Bariloche', cat:'descanso'},
+        {t:'Ficar de boa no hotel', d:'Recuperar o sono e aproveitar a vista antes de sair de novo.', cat:'descanso'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
-        {t:'Jantar aconchegante no centro', d:'Fondue ou pizza para esquentar.', map:'Centro San Carlos de Bariloche'}
+        {t:'Jantar aconchegante no centro', d:'Fondue ou pizza para esquentar.', map:'Centro San Carlos de Bariloche', cat:'comida'}
       ]}
     ]
   },
@@ -738,17 +831,17 @@ const days = [
     img:'https://images.unsplash.com/photo-1531572753322-ad063cecc140?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-car-side', items:[
-        {t:'Aproveitar a manhã no hotel', d:'Café da manhã com calma e vista para a região do Llao Llao.'},
-        {t:'Check-out e retirada do carro', d:'Depois do check-out, pegar o carro alugado para rodar o Circuito Chico.'}
+        {t:'Aproveitar a manhã no hotel', d:'Café da manhã com calma e vista para a região do Llao Llao.', cat:'descanso'},
+        {t:'Check-out e retirada do carro', d:'Depois do check-out, pegar o carro alugado para rodar o Circuito Chico.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-car', items:[
-        {t:'Circuito Chico + Cerro Campanario', d:'Estrada panorâmica com vista para os lagos Nahuel Huapi, Moreno e Perito Moreno.', map:'Circuito Chico, Bariloche'},
-        {t:'Hotel Llao Llao (vista, sem hospedar)', d:'Um dos points mais fotografados da região, mesmo só de passagem — bem na sequência do Circuito Chico.', map:'Llao Llao Bariloche'},
-        {t:'Almoço', d:'Alguma parada na área do Llao Llao/Circuito Chico.'}
+        {t:'Circuito Chico + Cerro Campanario', d:'Estrada panorâmica com vista para os lagos Nahuel Huapi, Moreno e Perito Moreno.', map:'Circuito Chico, Bariloche', cat:'passeio'},
+        {t:'Hotel Llao Llao (vista, sem hospedar)', d:'Um dos points mais fotografados da região, mesmo só de passagem — bem na sequência do Circuito Chico.', map:'Llao Llao Bariloche', cat:'passeio'},
+        {t:'Almoço', d:'Alguma parada na área do Llao Llao/Circuito Chico.', cat:'comida'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-mug-hot', items:[
-        {t:'Chocolate quente no centro', d:'Rapa Nui — clássico de Bariloche.', map:'Rapa Nui Bariloche'},
-        {t:'Passear no centro de Bariloche', d:'Orla do lago e Centro Cívico à noite.', map:'Centro Cívico Bariloche'}
+        {t:'Chocolate quente no centro', d:'Rapa Nui — clássico de Bariloche.', map:'Rapa Nui Bariloche', cat:'comida'},
+        {t:'Passear no centro de Bariloche', d:'Orla do lago e Centro Cívico à noite.', map:'Centro Cívico Bariloche', cat:'passeio'}
       ]}
     ]
   },
@@ -758,15 +851,15 @@ const days = [
     img:'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-car-side', items:[
-        {t:'Saída cedo para a Rota dos 7 Lagos', d:'Ver a lista completa de paradas na aba "Rota dos 7 Lagos".', map:'Villa La Angostura'}
+        {t:'Saída cedo para a Rota dos 7 Lagos', d:'Ver a lista completa de paradas na aba "Rota dos 7 Lagos".', map:'Villa La Angostura', cat:'passeio'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-water', items:[
-        {t:'San Martín de los Andes', d:'Cidade charmosa às margens do Lago Lácar, ótima para caminhar ao chegar.', map:'San Martín de los Andes'}
+        {t:'San Martín de los Andes', d:'Cidade charmosa às margens do Lago Lácar, ótima para caminhar ao chegar.', map:'San Martín de los Andes', cat:'passeio'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-moon', items:[
-        {t:'Check-in no hotel', d:'Já em San Martín de los Andes — sem volta a Bariloche essa noite.'},
-        {t:'Ficar em San Martín', d:'Depois de um dia longo de estrada, algo simples perto do hotel.'},
-        {t:'Jantar e passeio na cidade', d:'Caminhada tranquila pelo centro à beira do Lago Lácar.', map:'Centro San Martín de los Andes'}
+        {t:'Check-in no hotel', d:'Já em San Martín de los Andes — sem volta a Bariloche essa noite.', cat:'descanso'},
+        {t:'Ficar em San Martín', d:'Depois de um dia longo de estrada, algo simples perto do hotel.', cat:'descanso'},
+        {t:'Jantar e passeio na cidade', d:'Caminhada tranquila pelo centro à beira do Lago Lácar.', map:'Centro San Martín de los Andes', cat:'comida'}
       ]}
     ]
   },
@@ -776,15 +869,15 @@ const days = [
     img:'https://images.unsplash.com/photo-1618679283128-976b6e46d1c1?q=80&w=1200&auto=format&fit=crop',
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-water', items:[
-        {t:'Curtir o Lago Lácar', d:'Manhã tranquila à beira do lago antes de pegar a estrada de volta.', map:'Lago Lácar, San Martín de los Andes'},
-        {t:'Volta para Bariloche', d:'Mesmo trajeto da Rota dos 7 Lagos, agora no sentido contrário.'}
+        {t:'Curtir o Lago Lácar', d:'Manhã tranquila à beira do lago antes de pegar a estrada de volta.', map:'Lago Lácar, San Martín de los Andes', cat:'passeio'},
+        {t:'Volta para Bariloche', d:'Mesmo trajeto da Rota dos 7 Lagos, agora no sentido contrário.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-store', items:[
-        {t:'Lojinhas no centro', d:'Tempo livre para compras e lembrancinhas — chocolates inclusos.', map:'Mamuschka Chocolates, Bariloche'},
-        {t:'Passeio tranquilo no centro', d:'Um respiro antes da volta, orla do Lago Nahuel Huapi.', map:'Centro San Carlos de Bariloche'}
+        {t:'Lojinhas no centro', d:'Tempo livre para compras e lembrancinhas — chocolates inclusos.', map:'Mamuschka Chocolates, Bariloche', cat:'compras'},
+        {t:'Passeio tranquilo no centro', d:'Um respiro antes da volta, orla do Lago Nahuel Huapi.', map:'Centro San Carlos de Bariloche', cat:'passeio'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-champagne-glasses', items:[
-        {t:'Jantar romântico de despedida da Patagônia', d:'Celebrar os últimos momentos da lua de mel.', map:'Melhores restaurantes Bariloche'}
+        {t:'Jantar romântico de despedida da Patagônia', d:'Celebrar os últimos momentos da lua de mel.', map:'Melhores restaurantes Bariloche', cat:'comida'}
       ]}
     ]
   },
@@ -795,13 +888,13 @@ const days = [
     flight:{ route:'Bariloche → Buenos Aires → Curitiba', time:'09h55–12h00 · conexão 14h00–16h00' },
     periods:[
       { id:'manha', label:'Manhã', icon:'fa-plane-departure', items:[
-        {t:'Voo Bariloche → Buenos Aires', d:'Saída 09h55, chegada 12h00.'}
+        {t:'Voo Bariloche → Buenos Aires', d:'Saída 09h55, chegada 12h00.', cat:'transporte'}
       ]},
       { id:'tarde', label:'Tarde', icon:'fa-plane-arrival', items:[
-        {t:'Conexão Buenos Aires → Curitiba', d:'Saída 14h00, chegada 16h00.'}
+        {t:'Conexão Buenos Aires → Curitiba', d:'Saída 14h00, chegada 16h00.', cat:'transporte'}
       ]},
       { id:'noite', label:'Noite', icon:'fa-house', items:[
-        {t:'Chegada em casa', d:'Fim de uma lua de mel inesquecível 💕'}
+        {t:'Chegada em casa', d:'Fim de uma lua de mel inesquecível 💕', cat:'transporte'}
       ]}
     ]
   }
@@ -883,132 +976,192 @@ function renderPeriod(dayId, period){
   return `
     <div class="period">
       <h4><i class="fa-solid ${period.icon}"></i>${period.label}</h4>
-      <div class="item-list" id="list-${listKey}">
-        ${preItemsHtml(dayId, period)}
-        ${renderCustomItems(listKey)}
+      <div class="item-list" id="list-${listKey}" data-list-key="${listKey}">
+        ${itemsHtml(listKey)}
       </div>
-      <div class="add-row">
-        <input type="text" id="input-${listKey}" placeholder="Adicionar novo passeio, tarefa ou ideia...">
-        <button onclick="addCustomItem('${listKey}')"><i class="fa-solid fa-plus"></i></button>
+      <button type="button" class="add-toggle" onclick="toggleAddForm('${listKey}')"><i class="fa-solid fa-plus"></i> Adicionar atividade</button>
+      <div class="add-form" id="addform-${listKey}" style="display:none;">
+        <input type="text" id="add-t-${listKey}" placeholder="Nome da atividade">
+        <textarea id="add-d-${listKey}" rows="2" placeholder="Descrição (opcional)"></textarea>
+        <input type="text" id="add-map-${listKey}" placeholder="Local para o Google Maps (opcional)">
+        <select id="add-cat-${listKey}">${catOptionsHtml('outro')}</select>
+        <div class="add-form-actions">
+          <button class="btn btn-maps btn-small" onclick="addEntry('${listKey}')"><i class="fa-solid fa-check"></i> Adicionar</button>
+          <button class="btn btn-ghost btn-small" onclick="toggleAddForm('${listKey}')">Cancelar</button>
+        </div>
       </div>
     </div>`;
 }
 
-/* -- itens pré-carregados: suportam edição e exclusão via state.edits -- */
-function preItemsHtml(dayId, period){
-  return period.items.map((item, idx) => {
-    const itemId = dayId + '_' + period.id + '_' + idx;
-    const edit = state.edits[itemId];
-    if(edit && edit.deleted) return '';
-    const title = (edit && edit.t !== undefined) ? edit.t : item.t;
-    const desc  = (edit && edit.d !== undefined) ? edit.d : (item.d || '');
-    const mapQ  = (edit && edit.map !== undefined) ? edit.map : (item.map || '');
-    const chkId = 'chk-' + itemId;
-    const checked = !!state.checks[chkId];
+/* -- itens do roteiro: modelo unificado (state.items), com categoria, mapa, arrastar e mover -- */
+function itemsHtml(listKey){
+  const items = state.items[listKey] || [];
+  return items.map(item => {
+    const c = catInfo(item.cat);
     return `
-      <div class="item ${checked?'done':''}" data-item-id="${itemId}">
-        <input type="checkbox" ${checked?'checked':''} onchange="toggleCheck('${chkId}', this)">
-        <div class="item-body">
-          <div class="item-title">${escapeHtml(title)}</div>
-          ${desc ? `<div class="item-desc">${escapeHtml(desc)}</div>` : ''}
-          <div class="item-actions">
-            ${mapQ ? `<a class="map-link" href="#" onclick="openMaps('${mapQ.replace(/'/g,"\\'")}'); return false;"><i class="fa-solid fa-location-dot"></i>Ver no Maps</a>` : ''}
-            <button class="edit-btn" onclick="startEditItem('${itemId}','${dayId}','${period.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
-            <button class="del-btn" onclick="deletePreItem('${itemId}','${dayId}','${period.id}')"><i class="fa-solid fa-trash"></i> Remover</button>
-          </div>
+    <div class="item ${item.done?'done':''}" data-entry-id="${item.id}" style="border-left:4px solid ${c.color};">
+      <div class="drag-handle" title="Arraste para reordenar"><i class="fa-solid fa-grip-vertical"></i></div>
+      <input type="checkbox" ${item.done?'checked':''} onchange="toggleEntryDone('${listKey}','${item.id}', this)">
+      <div class="item-body">
+        <span class="cat-badge" style="background:${c.color};"><i class="fa-solid ${c.icon}"></i>${c.label}</span>
+        <div class="item-title">${escapeHtml(item.t)}</div>
+        ${item.d ? `<div class="item-desc">${escapeHtml(item.d)}</div>` : ''}
+        <div class="item-actions">
+          ${item.map ? `<a class="map-link" href="#" onclick="openMaps('${item.map.replace(/'/g,"\\'")}'); return false;"><i class="fa-solid fa-location-dot"></i>Ver no Maps</a>` : ''}
+          <button class="edit-btn" onclick="startEditEntry('${listKey}','${item.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+          <button class="edit-btn" onclick="startMoveEntry('${listKey}','${item.id}')"><i class="fa-solid fa-arrow-right-arrow-left"></i> Mover</button>
+          <button class="del-btn" onclick="deleteEntry('${listKey}','${item.id}')"><i class="fa-solid fa-trash"></i> Remover</button>
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }).join('');
 }
 
-function startEditItem(itemId, dayId, periodId){
-  const wrap = document.querySelector(`[data-item-id="${itemId}"] .item-body`);
-  if(!wrap) return;
-  const day = days.find(d=>d.id===dayId);
-  const period = day.periods.find(p=>p.id===periodId);
-  const idx = parseInt(itemId.split('_').pop(), 10);
-  const orig = period.items[idx];
-  const edit = state.edits[itemId] || {};
-  const title = edit.t !== undefined ? edit.t : orig.t;
-  const desc  = edit.d !== undefined ? edit.d : (orig.d || '');
-  const map   = edit.map !== undefined ? edit.map : (orig.map || '');
+function refreshItemsList(listKey){
+  const listEl = document.getElementById('list-' + listKey);
+  if(!listEl) return;
+  listEl.innerHTML = itemsHtml(listKey);
+}
+
+function toggleAddForm(listKey){
+  const el = document.getElementById('addform-' + listKey);
+  const showing = el.style.display !== 'none';
+  el.style.display = showing ? 'none' : 'flex';
+  if(!showing) document.getElementById('add-t-' + listKey).focus();
+}
+
+function addEntry(listKey){
+  const tEl = document.getElementById('add-t-' + listKey);
+  const t = tEl.value.trim();
+  if(!t) { tEl.focus(); return; }
+  const d = document.getElementById('add-d-' + listKey).value.trim();
+  const map = document.getElementById('add-map-' + listKey).value.trim();
+  const cat = document.getElementById('add-cat-' + listKey).value;
+  if(!state.items[listKey]) state.items[listKey] = [];
+  state.items[listKey].push({ id:'c'+Date.now(), t, d, map, done:false, cat });
+  persist();
+  document.getElementById('add-t-' + listKey).value = '';
+  document.getElementById('add-d-' + listKey).value = '';
+  document.getElementById('add-map-' + listKey).value = '';
+  document.getElementById('add-cat-' + listKey).value = 'outro';
+  toggleAddForm(listKey);
+  refreshItemsList(listKey);
+}
+
+function toggleEntryDone(listKey, id, el){
+  const item = (state.items[listKey]||[]).find(i=>i.id===id);
+  if(item){ item.done = el.checked; persist(); el.closest('.item').classList.toggle('done', el.checked); }
+}
+
+function startEditEntry(listKey, id){
+  const wrap = document.querySelector(`[data-entry-id="${id}"] .item-body`);
+  const item = (state.items[listKey]||[]).find(i=>i.id===id);
+  if(!wrap || !item) return;
   wrap.innerHTML = `
-    <input type="text" class="edit-title-input" value="${escapeAttr(title)}" placeholder="Nome da atividade">
-    <textarea class="edit-desc-input" rows="2" placeholder="Descrição (opcional)">${escapeHtml(desc)}</textarea>
-    <input type="text" class="edit-map-input" value="${escapeAttr(map)}" placeholder="Local para o Google Maps (opcional)">
+    <input type="text" class="edit-title-input" value="${escapeAttr(item.t)}" placeholder="Nome da atividade">
+    <textarea class="edit-desc-input" rows="2" placeholder="Descrição (opcional)">${escapeHtml(item.d)}</textarea>
+    <input type="text" class="edit-map-input" value="${escapeAttr(item.map)}" placeholder="Local para o Google Maps (opcional)">
+    <select class="edit-cat-input">${catOptionsHtml(item.cat)}</select>
     <div class="item-actions">
-      <button class="btn btn-ghost btn-small" onclick="saveEditItem('${itemId}','${dayId}','${periodId}')"><i class="fa-solid fa-check"></i> Salvar</button>
-      <button class="del-btn" onclick="refreshList('${dayId}_${periodId}')">Cancelar</button>
+      <button class="btn btn-ghost btn-small" onclick="saveEditEntry('${listKey}','${id}')"><i class="fa-solid fa-check"></i> Salvar</button>
+      <button class="del-btn" onclick="refreshItemsList('${listKey}')">Cancelar</button>
     </div>`;
   wrap.querySelector('.edit-title-input').focus();
 }
 
-function saveEditItem(itemId, dayId, periodId){
-  const wrap = document.querySelector(`[data-item-id="${itemId}"] .item-body`);
-  const newTitle = wrap.querySelector('.edit-title-input').value.trim();
-  const newDesc = wrap.querySelector('.edit-desc-input').value.trim();
-  const newMap = wrap.querySelector('.edit-map-input').value.trim();
-  if(!state.edits[itemId]) state.edits[itemId] = {};
-  state.edits[itemId].t = newTitle;
-  state.edits[itemId].d = newDesc;
-  state.edits[itemId].map = newMap;
+function saveEditEntry(listKey, id){
+  const wrap = document.querySelector(`[data-entry-id="${id}"] .item-body`);
+  const item = (state.items[listKey]||[]).find(i=>i.id===id);
+  if(!wrap || !item) return;
+  item.t = wrap.querySelector('.edit-title-input').value.trim() || item.t;
+  item.d = wrap.querySelector('.edit-desc-input').value.trim();
+  item.map = wrap.querySelector('.edit-map-input').value.trim();
+  item.cat = wrap.querySelector('.edit-cat-input').value;
   persist();
-  refreshList(dayId + '_' + periodId);
+  refreshItemsList(listKey);
 }
 
-function deletePreItem(itemId, dayId, periodId){
+function deleteEntry(listKey, id){
   if(!confirm('Remover esta atividade do roteiro?')) return;
-  if(!state.edits[itemId]) state.edits[itemId] = {};
-  state.edits[itemId].deleted = true;
+  state.items[listKey] = (state.items[listKey]||[]).filter(i=>i.id!==id);
   persist();
-  refreshList(dayId + '_' + periodId);
+  refreshItemsList(listKey);
 }
 
-function toggleCheck(chkId, el){
-  state.checks[chkId] = el.checked;
-  el.closest('.item').classList.toggle('done', el.checked);
-  persist();
+/* -- mover atividade para outro dia/período (via seletor, já que só um dia fica visível por vez) -- */
+function dayPeriodOptionsHtml(selectedListKey){
+  return days.map(day =>
+    day.periods.map(p => {
+      const key = day.id + '_' + p.id;
+      return `<option value="${key}" ${key===selectedListKey?'selected':''}>${day.date} — ${p.label}</option>`;
+    }).join('')
+  ).join('');
 }
 
-function renderCustomItems(listKey){
-  const items = state.custom[listKey] || [];
-  return items.map(item => `
-    <div class="item ${item.done?'done':''}" data-custom="${item.id}">
-      <input type="checkbox" ${item.done?'checked':''} onchange="toggleCustom('${listKey}','${item.id}', this)">
-      <div class="item-body">
-        <div class="item-title">${escapeHtml(item.text)}</div>
-        <div class="item-actions">
-          ${item.map ? `<a class="map-link" href="#" onclick="openMaps('${item.map.replace(/'/g,"\\'")}'); return false;"><i class="fa-solid fa-location-dot"></i>Ver no Maps</a>` : ''}
-          <button class="edit-btn" onclick="startEditCustom('${listKey}','${item.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
-          <button class="del-btn" onclick="deleteCustom('${listKey}','${item.id}')"><i class="fa-solid fa-trash"></i> Remover</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function startEditCustom(listKey, id){
-  const wrap = document.querySelector(`[data-custom="${id}"] .item-body`);
-  if(!wrap) return;
-  const item = (state.custom[listKey]||[]).find(i=>i.id===id);
-  if(!item) return;
+function startMoveEntry(listKey, id){
+  const wrap = document.querySelector(`[data-entry-id="${id}"] .item-body`);
+  const item = (state.items[listKey]||[]).find(i=>i.id===id);
+  if(!wrap || !item) return;
   wrap.innerHTML = `
-    <input type="text" class="edit-title-input" value="${escapeAttr(item.text)}" placeholder="Nome da atividade">
-    <input type="text" class="edit-map-input" value="${escapeAttr(item.map||'')}" placeholder="Local para o Google Maps (opcional)">
+    <div class="item-title" style="margin-bottom:8px;">${escapeHtml(item.t)}</div>
+    <label style="font-size:.72rem;color:var(--muted);font-weight:600;">Mover para:</label>
+    <select class="move-target-input">${dayPeriodOptionsHtml(listKey)}</select>
     <div class="item-actions">
-      <button class="btn btn-ghost btn-small" onclick="saveEditCustom('${listKey}','${id}')"><i class="fa-solid fa-check"></i> Salvar</button>
-      <button class="del-btn" onclick="refreshList('${listKey}')">Cancelar</button>
+      <button class="btn btn-ghost btn-small" onclick="confirmMoveEntry('${listKey}','${id}')"><i class="fa-solid fa-check"></i> Confirmar</button>
+      <button class="del-btn" onclick="refreshItemsList('${listKey}')">Cancelar</button>
     </div>`;
-  wrap.querySelector('.edit-title-input').focus();
 }
 
-function saveEditCustom(listKey, id){
-  const wrap = document.querySelector(`[data-custom="${id}"] .item-body`);
-  const newText = wrap.querySelector('.edit-title-input').value.trim();
-  const newMap = wrap.querySelector('.edit-map-input').value.trim();
-  const item = (state.custom[listKey]||[]).find(i=>i.id===id);
-  if(item && newText){ item.text = newText; item.map = newMap || undefined; persist(); }
-  refreshList(listKey);
+function confirmMoveEntry(fromListKey, id){
+  const wrap = document.querySelector(`[data-entry-id="${id}"] .item-body`);
+  const toListKey = wrap.querySelector('.move-target-input').value;
+  if(toListKey === fromListKey){ refreshItemsList(fromListKey); return; }
+  const arr = state.items[fromListKey] || [];
+  const idx = arr.findIndex(i=>i.id===id);
+  if(idx === -1) return;
+  const [item] = arr.splice(idx, 1);
+  if(!state.items[toListKey]) state.items[toListKey] = [];
+  state.items[toListKey].push(item);
+  persist();
+  refreshItemsList(fromListKey);
+  refreshItemsList(toListKey);
+}
+
+/* -- arrastar e soltar: reordenar dentro do dia e entre manhã/tarde/noite -- */
+function initSortableLists(){
+  days.forEach(day=>{
+    day.periods.forEach(period=>{
+      const listKey = day.id + '_' + period.id;
+      const el = document.getElementById('list-' + listKey);
+      if(!el || el._sortableInit) return;
+      el._sortableInit = true;
+      new Sortable(el, {
+        group: 'day-' + day.id,
+        handle: '.drag-handle',
+        animation: 150,
+        delay: 120,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onEnd: handleDragEnd
+      });
+    });
+  });
+}
+
+function handleDragEnd(evt){
+  const fromKey = evt.from.dataset.listKey;
+  const toKey = evt.to.dataset.listKey;
+  const id = evt.item.dataset.entryId;
+  const fromArr = state.items[fromKey] || [];
+  const idx = fromArr.findIndex(i=>i.id===id);
+  if(idx === -1) return;
+  const [movedItem] = fromArr.splice(idx, 1);
+  if(!state.items[toKey]) state.items[toKey] = [];
+  state.items[toKey].splice(evt.newIndex, 0, movedItem);
+  persist();
 }
 
 function escapeHtml(str){
@@ -1021,38 +1174,6 @@ function escapeAttr(str){
   return String(str || '')
     .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
     .replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function addCustomItem(listKey){
-  const input = document.getElementById('input-' + listKey);
-  const text = input.value.trim();
-  if(!text) return;
-  if(!state.custom[listKey]) state.custom[listKey] = [];
-  state.custom[listKey].push({ id: 'c' + Date.now(), text, done:false });
-  persist();
-  input.value = '';
-  refreshList(listKey);
-}
-
-function toggleCustom(listKey, id, el){
-  const item = (state.custom[listKey]||[]).find(i=>i.id===id);
-  if(item){ item.done = el.checked; persist(); el.closest('.item').classList.toggle('done', el.checked); }
-}
-
-function deleteCustom(listKey, id){
-  state.custom[listKey] = (state.custom[listKey]||[]).filter(i=>i.id!==id);
-  persist();
-  refreshList(listKey);
-}
-
-function refreshList(listKey){
-  const dayId = listKey.split('_')[0];
-  const periodId = listKey.substring(dayId.length + 1);
-  const day = days.find(d=>d.id===dayId);
-  const period = day.periods.find(p=>p.id===periodId);
-  const listEl = document.getElementById('list-' + listKey);
-  if(!listEl) return;
-  listEl.innerHTML = preItemsHtml(dayId, period) + renderCustomItems(listKey);
 }
 
 /* ============================================================
@@ -1085,14 +1206,25 @@ function renderLagos(){
   `).join('');
 }
 
+function renderCatLegend(){
+  const el = document.getElementById('catLegend');
+  if(!el) return;
+  el.innerHTML = Object.values(CATEGORIES).map(c=>
+    `<span class="tag"><span class="dot" style="background:${c.color};"></span>${c.label}</span>`
+  ).join('');
+}
+
 /* ============================================================
    INIT
 ============================================================ */
+migrateToUnifiedItems();
 renderOverview();
 renderDayTabs();
 renderDayPanels();
 renderLagos();
+renderCatLegend();
 bindFields(document);
+initSortableLists();
 </script>
 </body>
 </html>
