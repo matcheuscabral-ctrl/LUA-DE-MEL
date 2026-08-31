@@ -468,6 +468,19 @@ main{max-width:1180px;margin:0 auto;padding:44px 6vw 90px;}
 
 .route-notes{margin-top:30px;}
 
+/* ---------- MAPA COMPLETO DOS 7 LAGOS ---------- */
+.lagos-map-head{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:20px 22px;
+}
+.lagos-map-head h3{display:flex;align-items:center;gap:10px;font-size:1.1rem;}
+.lagos-map-head h3 i{color:var(--lake);}
+.map-embed-wrap{width:100%;height:420px;background:var(--cream-2);}
+.map-embed-wrap iframe{width:100%;height:100%;border:0;display:block;}
+@media(max-width:640px){
+  .map-embed-wrap{height:300px;}
+}
+
 /* ---------- BACKUP BAR ---------- */
 .backup-bar{
   max-width:1180px;margin:0 auto;padding:32px 6vw 0;
@@ -591,6 +604,16 @@ footer button{
       </div>
     </div>
 
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="lagos-map-head">
+        <h3><i class="fa-solid fa-map-location-dot"></i> Mapa completo da rota</h3>
+        <a class="btn btn-maps btn-small" id="lagosFullRouteLink" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-route"></i> Abrir rota completa no Google Maps</a>
+      </div>
+      <div class="map-embed-wrap">
+        <iframe id="lagosMapFrame" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      </div>
+    </div>
+
     <div class="card">
       <h3 style="margin-bottom:18px;">Paradas principais</h3>
       <div class="lagos-route" id="lagosRoute"></div>
@@ -686,6 +709,34 @@ function migrateToUnifiedItems(){
     });
   });
   persist();
+}
+
+/* Preenche fotos que faltam em itens JÁ existentes no state.items — necessário porque
+   quem já tinha aberto uma versão anterior do app já passou pela migração acima (que só
+   roda uma vez) e por isso nunca recebeu os "imgBucket" adicionados depois. Roda sempre,
+   é seguro repetir, e casa pelo id do item (então funciona mesmo se o item foi arrastado
+   para outro dia/período ou reordenado). */
+function backfillItemImages(){
+  const bucketById = {};
+  days.forEach(day=>{
+    day.periods.forEach(period=>{
+      period.items.forEach((item, idx)=>{
+        if(item.imgBucket){
+          bucketById[day.id + '_' + period.id + '_' + idx] = item.imgBucket;
+        }
+      });
+    });
+  });
+  let changed = false;
+  Object.keys(state.items).forEach(listKey=>{
+    (state.items[listKey] || []).forEach(entry=>{
+      if((!entry.imgs || !entry.imgs.length) && bucketById[entry.id]){
+        entry.imgs = imgUrls(bucketById[entry.id]);
+        changed = true;
+      }
+    });
+  });
+  if(changed) persist();
 }
 
 function clearAllData(){
@@ -1278,6 +1329,25 @@ function renderLagos(){
   `).join('');
 }
 
+function renderLagosFullMap(){
+  const stops = lagos.map(l => encodeURIComponent(l.q));
+  const saddr = stops[0];
+  const daddr = stops.slice(1).join('+to:');
+
+  // Mapa embutido (sem precisar de chave de API do Google)
+  const frame = document.getElementById('lagosMapFrame');
+  if(frame) frame.src = `https://maps.google.com/maps?saddr=${saddr}&daddr=${daddr}&output=embed`;
+
+  // Link para abrir a mesma rota completa no app/site do Google Maps
+  const origin = stops[0];
+  const destination = stops[stops.length - 1];
+  const middle = stops.slice(1, -1).join('|');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+  if(middle) url += `&waypoints=${middle}`;
+  const link = document.getElementById('lagosFullRouteLink');
+  if(link) link.href = url;
+}
+
 function renderCatLegend(){
   const el = document.getElementById('catLegend');
   if(!el) return;
@@ -1334,10 +1404,12 @@ function updateAllDayRoutes(){
    INIT
 ============================================================ */
 migrateToUnifiedItems();
+backfillItemImages();
 renderOverview();
 renderDayTabs();
 renderDayPanels();
 renderLagos();
+renderLagosFullMap();
 renderCatLegend();
 bindFields(document);
 initSortableLists();
